@@ -134,7 +134,7 @@ export default function AdminPenyelenggaraPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(buildApiUrl(`/api/penyelenggara/${id}`), {
+      const res = await fetch(buildApiUrl(`/api/admin/users/${id}`), {
         method: 'DELETE',
         headers: authHeaders,
       });

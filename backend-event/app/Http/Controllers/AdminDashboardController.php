@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Event;
 use App\Models\User;
 use App\Models\PendaftaranEvent;
+use App\Models\Pembayaran;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
@@ -115,5 +116,55 @@ class AdminDashboardController extends Controller
             'status' => 'success',
             'data' => $events
         ], 200);
+    }
+    
+    /**
+     * Menghapus user (Admin bisa menghapus siapapun kecuali admin lain)
+     */
+    public function deleteUser($id)
+    {
+        $targetUser = User::find($id);
+
+        if (!$targetUser) {
+            return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        // Jangan izinkan menghapus admin lain (atau diri sendiri via menu ini)
+        if ($targetUser->role === 'admin') {
+            return response()->json(['message' => 'Akun admin tidak dapat dihapus melalui menu ini'], 403);
+        }
+
+        DB::beginTransaction();
+        try {
+            // 1. Jika user ini adalah penyelenggara, hapus event yang dia buat
+            $events = Event::where('user_id', $id)->get();
+            foreach ($events as $event) {
+                $pendaftaranIds = PendaftaranEvent::where('event_id', $event->id)->pluck('id');
+                Pembayaran::whereIn('pendaftaran_id', $pendaftaranIds)->delete();
+                PendaftaranEvent::where('event_id', $event->id)->delete();
+                $event->delete();
+            }
+
+            // 2. Hapus pendaftaran di mana user ini adalah peserta
+            $pendaftaranUserIds = PendaftaranEvent::where('user_id', $id)->pluck('id');
+            Pembayaran::whereIn('pendaftaran_id', $pendaftaranUserIds)->delete();
+            PendaftaranEvent::where('user_id', $id)->delete();
+
+            // 3. Hapus OTP
+            DB::table('otp_verifications')->where('email', $targetUser->email)->delete();
+
+            // 4. Hapus User
+            $targetUser->delete();
+
+            DB::commit();
+
+            return response()->json(['message' => 'User berhasil dihapus'], 200);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            \Log::error("Gagal hapus user ID {$id}: " . $e->getMessage());
+            return response()->json([
+                'message' => 'Gagal menghapus user: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

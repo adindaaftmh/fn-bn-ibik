@@ -59,7 +59,8 @@ export default function PenyelenggaraLayout() {
   }, [navigate, location]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    sessionStorage.removeItem('ibik_auth_token');
+    sessionStorage.removeItem('ibik_auth_user');
     navigate('/login');
   };
 

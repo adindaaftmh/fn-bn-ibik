@@ -9,6 +9,7 @@ use App\Models\PendaftaranEvent;
 use Illuminate\Support\Facades\Storage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Str;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class SertifikatController extends Controller
 {
@@ -34,13 +35,7 @@ class SertifikatController extends Controller
         }
 
         if ($request->hasFile('template')) {
-            // Hapus template lama jika ada
-            if ($event->sertifikat_template) {
-                Storage::disk('public')->delete(str_replace('/storage/', '', $event->sertifikat_template));
-            }
-
-            $path = $request->file('template')->store('sertifikat/templates', 'public');
-            $event->sertifikat_template = '/storage/' . $path;
+            $event->sertifikat_template = Cloudinary::upload($request->file('template')->getRealPath())->getSecurePath();
         }
 
         $event->sertifikat_config = json_decode($request->config, true);
@@ -106,27 +101,27 @@ class SertifikatController extends Controller
         // Ambil pendaftaran yang memenuhi syarat:
         // 1. Hadir
         // 2. Pembayaran terverifikasi ATAU tiket gratis
-        // 3. Belum punya sertifikat
         $pendaftarans = PendaftaranEvent::with(['user', 'pembayaran'])
             ->where('event_id', $event_id)
             ->where('status_pendaftaran', 'hadir')
-            ->whereNull('sertifikat_url')
+            // ->whereNull('sertifikat_url') // Dihapus agar bisa re-generate jika template diubah atau URL lama rusak
             ->get();
 
         $berhasil = 0;
         $gagal = 0;
 
-        // Path ke template lokal (bukan URL) agar bisa dibaca dompdf
-        $templatePath = public_path(str_replace('/storage/', 'storage/', $event->sertifikat_template));
-        
-        if (!file_exists($templatePath)) {
-             return response()->json(['message' => 'File template fisik tidak ditemukan di server'], 500);
-        }
-
         // Konversi ke base64 agar mudah di-load di DOMPDF
-        $type = pathinfo($templatePath, PATHINFO_EXTENSION);
-        $data = file_get_contents($templatePath);
-        $base64Template = 'data:image/' . $type . ';base64,' . base64_encode($data);
+        try {
+            $data = \Illuminate\Support\Facades\Http::get($event->sertifikat_template)->body();
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Gagal mengunduh template dari server gambar'], 500);
+        }
+        // Deteksi mime type dari URL
+        $mime = 'image/jpeg';
+        if (str_ends_with(strtolower($event->sertifikat_template), '.png')) {
+            $mime = 'image/png';
+        }
+        $base64Template = 'data:' . $mime . ';base64,' . base64_encode($data);
 
         $config = $event->sertifikat_config ?: [
             'x' => '50%',
@@ -159,20 +154,26 @@ class SertifikatController extends Controller
                 // Render PDF
                 $pdf = Pdf::loadView('sertifikat.template', $dataView)->setPaper('a4', 'landscape');
                 
-                // Simpan ke storage
+                // Simpan langsung ke folder public (agar terhindar dari isu symlink 404 di Railway)
                 $fileName = 'sertifikat_' . Str::slug($event->nama_event) . '_' . Str::slug($nama_peserta) . '_' . uniqid() . '.pdf';
-                $filePath = 'sertifikat/generated/' . $fileName;
+                $publicPath = public_path('sertifikat/generated');
                 
-                Storage::disk('public')->put($filePath, $pdf->output());
+                // Pastikan folder exist
+                if (!file_exists($publicPath)) {
+                    mkdir($publicPath, 0755, true);
+                }
+                
+                file_put_contents($publicPath . '/' . $fileName, $pdf->output());
 
                 // Update database
-                $pendaftaran->sertifikat_url = '/storage/' . $filePath;
+                $pendaftaran->sertifikat_url = '/sertifikat/generated/' . $fileName;
                 $pendaftaran->save();
 
                 $berhasil++;
             } catch (\Exception $e) {
-                // Log error jika diperlukan: \Log::error($e->getMessage());
+                \Log::error('Cert Error: ' . $e->getMessage() . ' Trace: ' . $e->getTraceAsString());
                 $gagal++;
+                $lastError = $e->getMessage();
             }
         }
 
@@ -181,7 +182,8 @@ class SertifikatController extends Controller
             'summary' => [
                 'total_diproses' => $berhasil + $gagal,
                 'berhasil' => $berhasil,
-                'gagal' => $gagal
+                'gagal' => $gagal,
+                'last_error' => $lastError ?? null
             ]
         ], 200);
     }
@@ -203,7 +205,7 @@ class SertifikatController extends Controller
                     'id' => $pendaftaran->id,
                     'event_name' => optional($pendaftaran->event)->nama_event,
                     'event_date' => optional($pendaftaran->event)->tanggal,
-                    'sertifikat_url' => url($pendaftaran->sertifikat_url),
+                    'sertifikat_url' => filter_var($pendaftaran->sertifikat_url, FILTER_VALIDATE_URL) ? $pendaftaran->sertifikat_url : url($pendaftaran->sertifikat_url),
                     'generated_at' => $pendaftaran->updated_at
                 ];
             });

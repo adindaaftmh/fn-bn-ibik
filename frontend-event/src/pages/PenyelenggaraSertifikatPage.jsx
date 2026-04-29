@@ -135,7 +135,7 @@ export default function PenyelenggaraSertifikatPage() {
     if (ev.sertifikat_config) {
         setConfig(ev.sertifikat_config);
     } else {
-        setConfig({ x: '50%', y: '50%', fontSize: '30px', color: '#000000', align: 'center' });
+        setConfig({ x: '0%', y: '50%', fontSize: '30px', color: '#000000', align: 'center' });
     }
     setFileTemplate(null);
     setIsSettingModalOpen(true);
@@ -207,7 +207,11 @@ export default function PenyelenggaraSertifikatPage() {
       const data = await res.json();
       if (res.ok) {
         setGenerateResult(`Berhasil: ${data.summary.berhasil}, Gagal: ${data.summary.gagal}.`);
-        alert(`Selesai! Berhasil: ${data.summary.berhasil}, Gagal: ${data.summary.gagal}.`);
+        let msg = `Selesai! Berhasil: ${data.summary.berhasil}, Gagal: ${data.summary.gagal}.`;
+        if (data.summary.gagal > 0 && data.summary.last_error) {
+            msg += `\nError terakhir: ${data.summary.last_error}`;
+        }
+        alert(msg);
       } else {
         alert('Gagal: ' + data.message);
       }
@@ -363,7 +367,7 @@ export default function PenyelenggaraSertifikatPage() {
                                 position: 'absolute',
                                 left: config.x,
                                 top: config.y,
-                                transform: 'translate(-50%, -50%)',
+                                width: '100%',
                                 color: config.color,
                                 fontSize: config.fontSize,
                                 textAlign: config.align,

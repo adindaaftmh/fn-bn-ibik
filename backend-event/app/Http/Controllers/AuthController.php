@@ -27,7 +27,7 @@ class AuthController extends Controller
             'kategori_pendaftar' => $user->kategori_pendaftar,
             'role'               => $user->role,
             'avatar'             => $user->avatar,
-            'avatarUrl'          => $user->avatar ? url('avatars/' . $user->avatar) : null,
+            'avatarUrl'          => filter_var($user->avatar, FILTER_VALIDATE_URL) ? $user->avatar : ($user->avatar ? url('avatars/' . $user->avatar) : null),
             'email_verified_at'  => $user->email_verified_at,
         ];
     }
@@ -72,6 +72,10 @@ class AuthController extends Controller
         $validated['email']    = strtolower(trim($validated['email']));
         $validated['password'] = Hash::make($validated['password']);
         $validated['role']     = 'user';
+        
+        // Generate default username from email prefix + random string
+        $usernamePrefix = strstr($validated['email'], '@', true);
+        $validated['username'] = $usernamePrefix . '_' . Str::random(4);
 
         $user = User::create($validated);
 
@@ -92,9 +96,12 @@ class AuthController extends Controller
         // Kirim OTP via email
         try {
             Mail::to($user->email)->send(new OTPMail($user->nama_lengkap, $otp));
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // Log error tapi jangan gagalkan registrasi
-            \Log::error('Gagal kirim email OTP: ' . $e->getMessage());
+            \Log::error('Gagal kirim email OTP saat registrasi: ' . $e->getMessage(), [
+                'email' => $user->email,
+                'exception' => $e
+            ]);
         }
 
         return response()->json([
@@ -210,8 +217,11 @@ class AuthController extends Controller
 
         try {
             Mail::to($email)->send(new ResetPasswordMail($user->nama_lengkap, $resetUrl));
-        } catch (\Exception $e) {
-            \Log::error('Gagal kirim email reset password: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            \Log::error('Gagal kirim email reset password: ' . $e->getMessage(), [
+                'email' => $email,
+                'exception' => $e
+            ]);
         }
 
         return response()->json([
@@ -306,10 +316,13 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'nama_lengkap' => ['required', 'string', 'max:255'],
+            'username'     => ['required', 'string', 'max:255', 'unique:users,username,' . $user->id_user . ',id_user'],
             'no_hp'        => ['nullable', 'string', 'max:15'],
             'avatar'       => ['nullable', 'image', 'mimes:jpeg,png,jpg', 'max:2048'],
         ], [
             'nama_lengkap.required' => 'Nama lengkap wajib diisi',
+            'username.required'     => 'Username wajib diisi',
+            'username.unique'       => 'Username sudah digunakan',
             'avatar.image'         => 'File harus berupa gambar',
             'avatar.mimes'         => 'Format gambar harus jpeg, png, atau jpg',
             'avatar.max'           => 'Ukuran gambar maksimal 2MB',
@@ -317,19 +330,18 @@ class AuthController extends Controller
 
         $updateData = [
             'nama_lengkap' => $validated['nama_lengkap'],
+            'username'     => $validated['username'],
             'no_hp'        => $validated['no_hp'],
         ];
 
         if ($request->hasFile('avatar')) {
-            // Hapus avatar lama jika ada
-            if ($user->avatar && file_exists(public_path('avatars/' . $user->avatar))) {
-                unlink(public_path('avatars/' . $user->avatar));
+            // Hapus avatar lama di Cloudinary tidak mandatory, tapi kita bisa upload gambar baru
+            try {
+                $uploadedUrl = \CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary::upload($request->file('avatar')->getRealPath())->getSecurePath();
+                $updateData['avatar'] = $uploadedUrl;
+            } catch (\Exception $e) {
+                \Log::error('Upload avatar gagal: ' . $e->getMessage());
             }
-
-            $file = $request->file('avatar');
-            $filename = time() . '_' . $user->id_user . '.' . $file->getClientOriginalExtension();
-            $file->move(public_path('avatars'), $filename);
-            $updateData['avatar'] = $filename;
         }
 
         $user->update($updateData);

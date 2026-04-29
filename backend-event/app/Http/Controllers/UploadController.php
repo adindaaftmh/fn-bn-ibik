@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+
 
 class UploadController extends Controller
 {
@@ -13,16 +15,21 @@ class UploadController extends Controller
         ]);
 
         if ($request->hasFile('foto_event')) {
-            $file = $request->file('foto_event');
-            $filename = time() . '.' . $file->getClientOriginalExtension();
-            $file->move(public_path('event'), $filename);
+            try {
+                $uploadedFileUrl = cloudinary()->upload($request->file('foto_event')->getRealPath())->getSecurePath();
 
-            return response()->json([
-                'message' => 'Poster berhasil diupload',
-                'filename' => $filename,
-                'url' => url('event/' . $filename)
-            ], 200);
+                return response()->json([
+                    'message' => 'Poster berhasil diupload',
+                    'filename' => $uploadedFileUrl,
+                    'url' => $uploadedFileUrl
+                ], 200);
+            } catch (\Exception $e) {
+                return response()->json([
+                    'message' => 'Gagal upload ke Cloudinary: ' . $e->getMessage()
+                ], 500);
+            }
         }
+
 
         return response()->json([
             'message' => 'Tidak ada file yang diupload'

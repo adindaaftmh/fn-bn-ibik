@@ -9,19 +9,19 @@ const USER_KEY   = 'ibik_auth_user';
 
 /** Simpan token dan data user setelah login */
 export function setAuth(token, user) {
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  sessionStorage.setItem(TOKEN_KEY, token);
+  sessionStorage.setItem(USER_KEY, JSON.stringify(user));
   window.dispatchEvent(new Event('auth_changed'));
 }
 
 /** Ambil token dari localStorage */
 export function getToken() {
-  return localStorage.getItem(TOKEN_KEY);
+  return sessionStorage.getItem(TOKEN_KEY);
 }
 
 /** Ambil data user dari localStorage */
 export function getUser() {
-  const raw = localStorage.getItem(USER_KEY);
+  const raw = sessionStorage.getItem(USER_KEY);
   if (!raw) return null;
   try {
     return JSON.parse(raw);
@@ -37,8 +37,8 @@ export function isAuthenticated() {
 
 /** Hapus sesi (logout lokal) */
 export function clearAuth() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(USER_KEY);
   window.dispatchEvent(new Event('auth_changed'));
 }
 

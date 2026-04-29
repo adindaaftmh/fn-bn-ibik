@@ -12,7 +12,7 @@ const BULAN = ['Semua Bulan', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'J
 
 export default function AdminLaporanPage() {
   const [tab, setTab] = useState('event'); // 'event' | 'penyelenggara'
-  const [filterTahun, setFilterTahun] = useState('semua');
+  const [filterTahun, setFilterTahun] = useState('2026');
   const [filterBulan, setFilterBulan] = useState('0'); // 0 = Semua
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +45,7 @@ export default function AdminLaporanPage() {
       const monthMatch = filterBulan === '0' || (date.getMonth() + 1).toString() === filterBulan;
       return yearMatch && monthMatch;
     });
-  }, [filterTahun, filterBulan]);
+  }, [filterTahun, filterBulan, reports]);
 
   // Aggregate Data untuk Penyelenggara
   const organizerReports = useMemo(() => {

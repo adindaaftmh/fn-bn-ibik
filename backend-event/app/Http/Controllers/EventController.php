@@ -8,6 +8,7 @@ use App\Models\PendaftaranEvent;
 use App\Models\Pembayaran;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class EventController extends Controller
 {
@@ -73,10 +74,15 @@ class EventController extends Controller
         $namaFile = 'default-event.jpg';
 
         if ($request->hasFile('foto_event')) {
-            $file = $request->file('foto_event');
-            $namaFile = time().'.'.$file->getClientOriginalExtension();
-            $file->move(public_path('event'), $namaFile);
+            try {
+                $namaFile = cloudinary()->upload($request->file('foto_event')->getRealPath())->getSecurePath();
+            } catch (\Exception $e) {
+                return response()->json(['message' => 'Gagal upload ke Cloudinary: ' . $e->getMessage()], 500);
+            }
         }
+
+
+
 
         $event = Event::create([
             'user_id' => $user->id_user,
@@ -136,10 +142,15 @@ class EventController extends Controller
         $namaFile = $event->foto_event ?: 'default-event.jpg';
 
         if ($request->hasFile('foto_event')) {
-            $file = $request->file('foto_event');
-            $namaFile = time().'.'.$file->getClientOriginalExtension();
-            $file->move(public_path('event'), $namaFile);
+            try {
+                $namaFile = cloudinary()->upload($request->file('foto_event')->getRealPath())->getSecurePath();
+            } catch (\Exception $e) {
+                return response()->json(['message' => 'Gagal upload ke Cloudinary: ' . $e->getMessage()], 500);
+            }
         }
+
+
+
 
         $event->update([
             'nama_event' => $request->nama_event,

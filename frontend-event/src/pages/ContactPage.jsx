@@ -15,8 +15,8 @@ const initialForm = {
 };
 
 export default function ContactPage() {
-  const [form, setForm]           = useState(initialForm);
-  const [status, setStatus]       = useState('');
+  const [form, setForm] = useState(initialForm);
+  const [status, setStatus] = useState('');
   const [statusType, setStatusType] = useState('success');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -105,19 +105,19 @@ export default function ContactPage() {
                   <div className="contact-info-item">
                     <div className="icon-wrap"><Mail size={15} strokeWidth={2} /></div>
                     <strong>Email</strong>
-                    <p>dynotix@gmail.com</p>
+                    <p>info@kesavent.com</p>
                   </div>
 
                   <div className="contact-info-item">
                     <div className="icon-wrap"><AtSign size={15} strokeWidth={2} /></div>
                     <strong>Instagram</strong>
-                    <p>@dynotixevent</p>
+                    <p>@ibikesatuan</p>
                   </div>
 
                   <div className="contact-info-item">
                     <div className="icon-wrap"><MapPin size={15} strokeWidth={2} /></div>
                     <strong>Alamat</strong>
-                    <p>Tajur, Bogor</p>
+                    <p>Bogor</p>
                   </div>
                 </div>
               </div>

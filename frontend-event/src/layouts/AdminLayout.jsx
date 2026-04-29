@@ -11,7 +11,8 @@ export default function AdminLayout() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    sessionStorage.removeItem('ibik_auth_token');
+    sessionStorage.removeItem('ibik_auth_user');
     navigate('/login');
   };
 

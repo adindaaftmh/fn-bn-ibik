@@ -71,7 +71,7 @@ export default function AdminPenggunaPage() {
     try {
       const token = getToken() || '';
       const headers = { ...defaultHeaders, Authorization: token ? `Bearer ${token}` : '' };
-      const res = await fetch(buildApiUrl(`/api/penyelenggara/${id}`), {
+      const res = await fetch(buildApiUrl(`/api/admin/users/${id}`), {
         method: 'DELETE',
         headers,
       });
